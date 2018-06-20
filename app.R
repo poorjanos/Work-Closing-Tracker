@@ -70,7 +70,7 @@ server <- function(input, output) {
         x = "Ajánlat státusza",
         y = "Díj státusza"
       ) +
-      coord_cartesian(ylim = c(0, 25000))
+      coord_cartesian(ylim = c(0, 30000))
   })
 }
 

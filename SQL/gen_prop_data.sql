@@ -33,9 +33,9 @@ AS
             convert(f_kecs_pg, 'US7ASCII') as f_kecs_pg,
             f_erkezes
      FROM   kontakt.t_ajanlat_attrib a
-    WHERE   f_erkezes BETWEEN DATE '2018-05-01' AND DATE '2018-06-15'
-            OR (f_erkezes < DATE '2018-05-01'
-                AND f_lezaras >= DATE '2018-05-01');
+    WHERE   f_erkezes BETWEEN DATE '2018-05-14' AND DATE '2018-06-13'
+            OR (f_erkezes < DATE '2018-05-14'
+                AND f_lezaras >= DATE '2018-05-14');
 COMMIT;
 
 
