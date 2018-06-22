@@ -7,7 +7,7 @@ COMMIT;
 CREATE TABLE t_prop_com
 AS
    SELECT   a.f_ivk,
-            convert(f_termcsop, 'US7ASCII') as f_termcsop,
+            CONVERT (f_termcsop, 'US7ASCII') AS f_termcsop,
             CASE
                WHEN F_CSATORNA LIKE 'U%' OR F_CSATORNA LIKE 'O%'
                THEN
@@ -30,17 +30,45 @@ AS
                   'Direkt'
             END
                AS F_CSATORNA_KAT,
-            convert(f_kecs_pg, 'US7ASCII') as f_kecs_pg,
-            f_erkezes
+            CONVERT (f_kecs_pg, 'US7ASCII') AS f_kecs_pg,
+            CONVERT (f_kecs, 'US7ASCII') AS f_kecs,
+            f_erkezes,
+            f_lezaras,
+            poorj.jutzar_erk(f_erkezes) as jutzar_erk_idoszak,
+            poorj.jutzar_men(f_lezaras) as jutzar_men_idoszak
      FROM   kontakt.t_ajanlat_attrib a
-    WHERE   f_erkezes BETWEEN DATE '2018-05-14' AND DATE '2018-06-13'
-            OR (f_erkezes < DATE '2018-05-14'
-                AND f_lezaras >= DATE '2018-05-14');
+    WHERE   f_erkezes >= date '2018-01-01';
+
 COMMIT;
 
 
+/* Filter for current period*/
+DROP TABLE t_prop_com_current;
+COMMIT;
+
+CREATE TABLE t_prop_com_current
+as
+SELECT   *
+  FROM   t_prop_com
+ WHERE   
+ --first filter for pending cases or cases closed in period (until end of closing the below select evaluates to current period)
+ (jutzar_men_idoszak IS NULL
+          OR jutzar_men_idoszak =
+               (SELECT   TRUNC (MIN (f_menesztes), 'mm')
+                  FROM   t_jut_zaras
+                 WHERE   f_menesztes >= TRUNC (SYSDATE, 'ddd')))
+ --second exclude cases that arrive in the closing period (until end of closing the below select evaluates to current period)
+         AND jutzar_erk_idoszak <=
+               (SELECT   TRUNC (MIN (f_menesztes), 'mm')
+                  FROM   t_jut_zaras
+                 WHERE   f_menesztes >= TRUNC (SYSDATE, 'ddd'));
+COMMIT;
+
+
+
+
 /* Add contractid premium fields*/
-ALTER TABLE t_prop_com
+ALTER TABLE t_prop_com_current
 ADD(
 szerzazon varchar2(20),
 dijbefizdat date,
@@ -51,7 +79,7 @@ COMMIT;
 
 /* Add contractid*/
 
-UPDATE   t_prop_com a
+UPDATE   t_prop_com_current a
    SET   szerzazon =
             (SELECT   f_szerzazon
                FROM   r_irat_ajanlat b
@@ -59,6 +87,18 @@ UPDATE   t_prop_com a
 
 COMMIT;
 
+
+/* Collect  premiums to proposals*/
+
+CREATE INDEX prop
+   ON t_prop_com_current (f_ivk);
+
+COMMIT;
+
+CREATE INDEX contr
+   ON t_prop_com_current (szerzazon);
+
+COMMIT;
 
 
 /* Gen premium table*/
@@ -71,7 +111,7 @@ AS
               MIN (f_dijbeido) AS dijbefizdat,
               MIN (f_banknap) AS dijerkdat,
               MIN (f_datum) AS dijkonyvdat
-       FROM   t_prop_com a, ab_t_dijtabla@dl_peep b
+       FROM   t_prop_com_current a, ab_t_dijtabla@dl_peep b
       WHERE   a.szerzazon = b.f_szerz_azon AND a.f_termcsop <> 'ELET'
    GROUP BY   a.szerzazon;
 
@@ -93,7 +133,7 @@ AS
                                  payment_date,
                                  value_date
                  FROM   fmoney_in@dl_peep) b,
-              t_prop_com c
+              t_prop_com_current c
       WHERE       c.f_ivk = a.proposal_idntfr
               AND a.money_in_idntfr = b.money_in_idntfr
               AND ref_entity_type = 'Premium'
@@ -118,20 +158,13 @@ COMMIT;
 
 
 /* Add premiums to proposals*/
-DROP INDEX prop;
-
-CREATE INDEX prop
-   ON t_prop_com (szerzazon);
-
-COMMIT;
-DROP INDEX prem;
 
 CREATE INDEX prem
    ON t_prem_helper (szerzazon);
 
 COMMIT;
 
-UPDATE   t_prop_com a
+UPDATE   t_prop_com_current a
    SET   (dijbefizdat,dijerkdat,dijkonyvdat) =
             (SELECT   dijbefizdat, dijerkdat, dijkonyvdat
                FROM   t_prem_helper b
@@ -140,26 +173,23 @@ UPDATE   t_prop_com a
 COMMIT;
 
 /* Gen premium flag*/
-ALTER TABLE t_prop_com
+ALTER TABLE t_prop_com_current
 ADD(
 dijkonyv varchar2(20));
 COMMIT;
 
-UPDATE   t_prop_com
+UPDATE   t_prop_com_current
    SET   dijkonyv = 'Van konyvelt dij'
  WHERE   dijkonyvdat IS NOT NULL;
 
 COMMIT;
 
-UPDATE   t_prop_com
+UPDATE   t_prop_com_current
    SET   dijkonyv = 'Nincs konyvelt dij'
  WHERE   dijkonyvdat IS NULL;
 
 COMMIT;
-
-
-/* Delete old items*/
-DELETE FROM   t_prop_com
-      WHERE   f_erkezes < DATE '2018-03-01';
-
+DROP INDEX prop;
+DROP INDEX contr;
+DROP INDEX prem;
 COMMIT;

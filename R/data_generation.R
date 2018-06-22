@@ -48,7 +48,7 @@ dbDisconnect(jdbcConnection)
 
 
 ##########################################################################################
-# Transform Data #########################################################################
+# Gen Data for Shiny App #################################################################
 ##########################################################################################
 
 t_app_data <- t_prop_com %>%
@@ -61,4 +61,44 @@ t_app_data <- t_prop_com %>%
 write.csv(t_app_data,
           here::here("Data", "t_app_data.csv"),
           row.names = FALSE)
+
+
+##########################################################################################
+# Gen Data for Flexdashboard  ############################################################
+##########################################################################################
+
+t_volume <- t_prop_com %>%
+            mutate(
+              F_ERKEZES = floor_date(ymd_hms(F_ERKEZES), "day"),
+              F_ERKEZES_HET = paste0(
+                year(F_ERKEZES), "/",
+                ifelse(week(F_ERKEZES) < 10,
+                       paste0("0", week(F_ERKEZES)), week(F_ERKEZES)
+                ))) %>%
+            group_by(F_ERKEZES, F_ERKEZES_HET, F_KECS, ALLOMANY) %>%
+            summarise(DARAB = length(F_IVK)) %>%
+            filter(DARAB >= 20) %>%
+            ungroup()
+
+
+t_men <- t_prop_com %>%
+  mutate(
+    F_LEZARAS = floor_date(ymd_hms(F_LEZARAS), "day"),
+    F_LEZARAS_HET = case_when(
+      is.na(F_LEZARAS) ~ "fuggo",
+      TRUE ~ paste0(
+        year(F_LEZARAS), "/",
+        ifelse(week(F_LEZARAS) < 10,
+               paste0("0", week(F_LEZARAS)), week(F_LEZARAS)
+        )))) %>%
+  group_by(F_LEZARAS_HET, ALLOMANY) %>%
+  summarise(DARAB = length(F_IVK)) %>%
+  filter(DARAB >= 20) %>%
+  ungroup()
+
+
+
+ggplot(t_volumes, aes(F_ERKEZES_HET, DARAB)) +
+  geom_bar
+
 
