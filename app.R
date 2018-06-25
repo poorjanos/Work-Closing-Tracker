@@ -1,77 +1,119 @@
+## app.R ##
+library(shinydashboard)
 library(shiny)
 library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(readr)
 
+
+# Read in csv
 options(stringsAsFactors = FALSE)
-t_app_data <- read_csv(here::here("Data", "t_app_data.csv")) %>% 
-              mutate(F_ERKEZES = ymd(F_ERKEZES)) %>%
-              filter(!is.na(F_AJANLAT_STATUS)) %>% 
-              mutate_if(is.character, as.factor) 
+t_app_hist <- read_csv(here::here("Data", "t_history.csv")) %>%
+  mutate(
+    IDOPONT = ymd_hms(IDOPONT),
+    JUTZAR_ERK_IDOSZAK = ymd_hms(JUTZAR_ERK_IDOSZAK),
+    JUTZAR_MEN_IDOSZAK = ymd_hms(JUTZAR_MEN_IDOSZAK)
+  ) %>%
+  mutate_if(is.character, as.factor)
+
+now <- max(t_app_hist$IDOPONT, na.rm = TRUE)
+
+t_app_curr <- t_app_hist %>% filter(IDOPONT == now)
 
 
-# User interface ------------------------------------------------------------------------
-ui <- fluidPage(titlePanel("Jutalékzárásban érintett állomány"),
-                sidebarLayout(
-                  sidebarPanel(                    
-                    sliderInput("dateInput", strong("Érkezett"),
-                                min = min(t_app_data$F_ERKEZES),
-                                max = max(t_app_data$F_ERKEZES),
-                                c(min(t_app_data$F_ERKEZES), max(t_app_data$F_ERKEZES))),
-                    checkboxGroupInput("prodInput", strong("Termékcsoport"),
-                                       choices = levels(t_app_data$F_TERMCSOP),
-                                       selected = levels(t_app_data$F_TERMCSOP)
+# Define dashboard components
+ui <- dashboardPage(
+  dashboardHeader(title = paste0("Jutalek zaras ", "BETA")),
+  dashboardSidebar(sidebarMenu(                    
+                    checkboxGroupInput("prodInput", strong("Termekcsoport"),
+                                       choices = levels(t_app_hist$F_TERMCSOP),
+                                       selected = levels(t_app_hist$F_TERMCSOP)
                     ),
-                    checkboxGroupInput("channelInput", strong("Értékesítési csatorna"),
-                                       choices = levels(t_app_data$F_CSATORNA_KAT),
-                                       selected = levels(t_app_data$F_CSATORNA_KAT)
+                    checkboxGroupInput("channelInput", strong("Ertekesitesi csatorna"),
+                                       choices = levels(t_app_hist$F_CSATORNA_KAT),
+                                       selected = levels(t_app_hist$F_CSATORNA_KAT)
+                    ),
+                    checkboxGroupInput("premiumInput", strong("Konyvelt dij"),
+                                       choices = levels(t_app_hist$DIJ_ERKEZETT),
+                                       selected = levels(t_app_hist$DIJ_ERKEZETT)
                     )
-                  ),
-                  mainPanel(plotOutput("statusPlot"))
-))
+                  )
+                ),
+  dashboardBody(
+                    # Boxes need to be put in a row (or column)
+                    fluidRow(
+                      # Dynamic valueBoxes
+                      valueBoxOutput("volumeBox"),
+                      
+                      valueBoxOutput("finishedRateBox"),
+                      
+                      valueBoxOutput("timeLeftBox")
+                    ),
+                    
+                    fluidRow(
+                      box(plotOutput("statusPlot", height = 400))
+                    )
+                  )
+  )
 
-# Server --------------------------------------------------------------------------------
 server <- function(input, output) {
   
   # Create reactive data input once for reuse in render* funcs below
-  filtered <- reactive({
-    t_app_data %>%
+  filtered_curr <- reactive({
+    t_app_curr %>%
       filter(
         F_TERMCSOP %in% input$prodInput &
-        F_CSATORNA_KAT %in% input$channelInput &
-        F_ERKEZES >= input$dateInput[1] &
-        F_ERKEZES <= input$dateInput[2]) %>%
-        group_by(F_AJANLAT_STATUS, F_DIJ_STATUS) %>%
-        summarize(DARAB = length(F_IVK)) %>% 
-        ungroup()
+          F_CSATORNA_KAT %in% input$channelInput &
+            DIJ_ERKEZETT %in% input$premiumInput
+      )
   })
- 
-   
-  # Render plot
-  output$statusPlot <- renderPlot({
-    if (is.null(filtered())) {
-      return()
-    }
+  
+  # Render ValueBoxes
+  output$volumeBox <- renderValueBox({
+  valueBox(
+    paste(sum(filtered_curr()$DARAB, na.rm = TRUE), "db"), "Allomany", icon("signal", lib = "glyphicon"),
+    color = "blue"
+  )
+})
 
+output$finishedRateBox <- renderValueBox({
+  valueBox(
+    paste(round(sum(filtered_curr()[filtered_curr()$F_KECS_PG == "Feldolgozott", "DARAB"], na.rm = TRUE) / sum(filtered_curr()$DARAB, na.rm = TRUE)*100, 2), "%"), "Feldolgozott", icon("ok", lib = "glyphicon"),
+    color = "blue"
+  )
+})
+
+output$timeLeftBox <- renderValueBox({
+  valueBox(
+    paste(filtered_curr() %>% tally(), "hours"), "Hatralevo ido", icon("time", lib = "glyphicon"),
+    color = "blue"
+  )
+})
+  
+output$statusPlot <- renderPlot({
+  if (is.null(filtered_curr())) {
+    return()
+  }
+  
   ggplot(
-      filtered(),
-      aes(x = F_AJANLAT_STATUS, y = DARAB)
+    filtered_curr(),
+    aes(x = F_KECS_PG, y = DARAB)
+  ) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    geom_text(aes(label = DARAB), vjust = 1.6, color = "black", size = 6) +
+    theme(
+      axis.text.x = element_text(angle = 90, size = 12),
+      axis.text.y = element_text(size = 12),
+      strip.text.x = element_text(size = 12)
     ) +
-      geom_bar(stat = "identity", fill = "steelblue") +
-      geom_text(aes(label = DARAB), vjust = 1.6, color = "black", size = 6) +
-      theme(
-        axis.text.x = element_text(angle = 90, size = 12),
-        axis.text.y = element_text(size = 12),
-        strip.text.x = element_text(size = 12)
-      ) +
-      facet_grid(. ~ F_DIJ_STATUS) +
-      labs(
-        x = "Ajánlat státusza",
-        y = "Díj státusza"
-      ) +
-      coord_cartesian(ylim = c(0, 30000))
-  })
+    labs(
+      x = "Ajanlat_statusza",
+      y = "Allomany"
+    ) +
+    coord_cartesian(ylim = c(0, 30000)) +
+    coord_flip()
+})
 }
 
-shinyApp(ui = ui, server = server)
+shinyApp(ui, server)

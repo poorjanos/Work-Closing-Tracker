@@ -5,6 +5,12 @@ library(dplyr)
 library(lubridate)
 
 
+# Quit if sysdate == weekend ------------------------------------------------------------
+stopifnot(!(strftime(Sys.Date(), "%u") == 6 | strftime(Sys.Date(), "%u") == 7))
+
+# Import helper functions
+source(here::here("R", "data_manipulation.R"))
+
 ##########################################################################################
 # Extract Data ###########################################################################
 ##########################################################################################
@@ -39,66 +45,61 @@ jdbcConnection <-
     password = kontakt$pwd
   )
 
+# Read query
+query <- readQuery(here::here("SQL", "query_status.sql"))
 
 # Run query
-t_prop_com <- dbGetQuery(jdbcConnection, "select * from t_prop_com")
+t_prop_com <- dbGetQuery(jdbcConnection, query)
+t_zaras_idoszak <- dbGetQuery(jdbcConnection, "select * from t_jut_zaras")
 
 # Close connection
 dbDisconnect(jdbcConnection)
 
 
 ##########################################################################################
-# Gen Data for Shiny App #################################################################
+# Gen Data for Shinydashboard  ###########################################################
 ##########################################################################################
 
-t_app_data <- t_prop_com %>%
-                mutate(F_ERKEZES = floor_date(ymd_hms(F_ERKEZES), "day"),
-                       F_AJANLAT_STATUS = F_KECS_PG,
-                       F_DIJ_STATUS = DIJKONYV) %>%
-                select(F_IVK, F_ERKEZES, F_CSATORNA_KAT, F_TERMCSOP, F_AJANLAT_STATUS, F_DIJ_STATUS)
+t_agg <- t_prop_com %>%
+  mutate(
+    IDOPONT = ymd_hms(IDOPONT),
+    JUTZAR_ERK_IDOSZAK = ymd_hms(JUTZAR_ERK_IDOSZAK),
+    JUTZAR_MEN_IDOSZAK = ymd_hms(JUTZAR_MEN_IDOSZAK),
+    DIJ_ERKEZETT = case_when(
+      !is.na(.$DIJKONYVDAT) ~ "I",
+      TRUE ~ "N"
+    ),
+    JUTZAR_ERK_IDOSZAK_KAT = case_when(
+      JUTZAR_ERK_IDOSZAK < max(JUTZAR_MEN_IDOSZAK, na.rm = TRUE) ~ "Korabbi",
+      TRUE ~ "Aktualis"
+    )
+  ) %>%
+  group_by(IDOPONT, F_TERMCSOP, F_CSATORNA_KAT,
+           F_KECS, F_KECS_PG, DIJ_ERKEZETT,
+           JUTZAR_ERK_IDOSZAK, JUTZAR_ERK_IDOSZAK_KAT, JUTZAR_MEN_IDOSZAK) %>%
+  summarise(
+    DARAB = length(F_IVK),
+    AFC_NAP_ATL = mean(AFC_NAPOS)) %>% 
+  ungroup()
+  
+
+
+# Determine whether to append or overwrite log
+to_append <- log_append()
 
 # Save to local storage
-write.csv(t_app_data,
-          here::here("Data", "t_app_data.csv"),
-          row.names = FALSE)
-
-
-##########################################################################################
-# Gen Data for Flexdashboard  ############################################################
-##########################################################################################
-
-t_volume <- t_prop_com %>%
-            mutate(
-              F_ERKEZES = floor_date(ymd_hms(F_ERKEZES), "day"),
-              F_ERKEZES_HET = paste0(
-                year(F_ERKEZES), "/",
-                ifelse(week(F_ERKEZES) < 10,
-                       paste0("0", week(F_ERKEZES)), week(F_ERKEZES)
-                ))) %>%
-            group_by(F_ERKEZES, F_ERKEZES_HET, F_KECS, ALLOMANY) %>%
-            summarise(DARAB = length(F_IVK)) %>%
-            filter(DARAB >= 20) %>%
-            ungroup()
-
-
-t_men <- t_prop_com %>%
-  mutate(
-    F_LEZARAS = floor_date(ymd_hms(F_LEZARAS), "day"),
-    F_LEZARAS_HET = case_when(
-      is.na(F_LEZARAS) ~ "fuggo",
-      TRUE ~ paste0(
-        year(F_LEZARAS), "/",
-        ifelse(week(F_LEZARAS) < 10,
-               paste0("0", week(F_LEZARAS)), week(F_LEZARAS)
-        )))) %>%
-  group_by(F_LEZARAS_HET, ALLOMANY) %>%
-  summarise(DARAB = length(F_IVK)) %>%
-  filter(DARAB >= 20) %>%
-  ungroup()
-
-
-
-ggplot(t_volumes, aes(F_ERKEZES_HET, DARAB)) +
-  geom_bar
-
-
+if (to_append == FALSE){
+  write.table(t_agg,
+              here::here("Data", "t_history.csv"),
+              row.names = FALSE,
+              col.names = TRUE,
+              sep = ",",
+              append = FALSE)
+} else if (to_append == TRUE){
+  write.table(t_agg,
+              here::here("Data", "t_history.csv"),
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = ",",
+              append = TRUE)
+}
