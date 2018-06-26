@@ -64,11 +64,11 @@ ui <- dashboardPage(
 
     # Bottom row plots
     fluidRow(
-      box(plotOutput("volumePlot", height = 100),
+      box(plotOutput("volumePlot", height = 120),
         solidHeader = TRUE, background = "teal",
         title = "Allomany fejlodes", width = 6
       ),
-      box(plotOutput("burnPlot", height = 100),
+      box(plotOutput("burnPlot", height = 120),
         solidHeader = TRUE, background = "teal",
         title = "Burn chart", width = 6
       )
@@ -142,10 +142,10 @@ server <- function(input, output) {
       geom_bar(stat = "identity", fill = "steelblue") +
       geom_text(aes(label = DARAB), hjust = 0.5, color = "black") +
       theme(
-        axis.text.x = element_text(angle = 90)
+        axis.text.x = element_text(angle = 90, size = 16)
       ) +
       labs(
-        x = "Ajanlat_statusza",
+        x = "Ajanlat statusza",
         y = "Allomany [db]"
       ) +
       coord_flip() +
@@ -168,10 +168,11 @@ server <- function(input, output) {
       geom_bar(stat = "identity", fill = "steelblue") +
       geom_text(aes(label = DARAB), hjust = 0.5, color = "black") +
       theme(
-        axis.text.x = element_text(angle = 90)
+        axis.text.x = element_text(angle = 90, size = 12),
+        strip.text.y = element_text(size = 14)
       ) +
       labs(
-        x = "Ajanlat_statusza",
+        x = "Ajanlat statusza",
         y = "Allomany [db]"
       ) +
       facet_grid(. ~ F_KECS_PG, scales = "free") +

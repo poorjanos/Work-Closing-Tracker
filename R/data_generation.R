@@ -3,6 +3,7 @@ library(config)
 library(here)
 library(dplyr)
 library(lubridate)
+library(rsconnect)
 
 
 # Quit if sysdate == weekend ------------------------------------------------------------
@@ -103,3 +104,10 @@ if (to_append == FALSE){
               sep = ",",
               append = TRUE)
 }
+
+
+# Push app to shinyapps.io
+Sys.setenv(http_proxy = 'http://PoorJ:Aegon2023@edc-proxy.ds.global:9090')
+Sys.setenv(https_proxy = 'https://PoorJ:Aegon2023@edc-proxy.ds.global:9090')
+
+rsconnect::deployApp(appName = "CloseTracker", forceUpdate = TRUE)
