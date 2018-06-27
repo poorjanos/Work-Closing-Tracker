@@ -10,10 +10,13 @@ scriptLog <- file("scriptLog", open = "wt")
 sink(scriptLog, type = "message")
 
 # Quit if sysdate == weekend ------------------------------------------------------------
-stopifnot(!(strftime(Sys.Date(), '%u') %in% c(6, 7) | hour(Sys.time()) >= 18))
+stopifnot(!(strftime(Sys.Date(), '%u') %in% c(6, 7) | hour(Sys.time()) >= 18 | hour(Sys.time()) < 7))
 
 # Import helper functions
 source(here::here("R", "data_manipulation.R"))
+
+# Get proxy credentials
+proxy <- config::get("proxy", file = "C:\\Users\\PoorJ\\Projects\\config.yml")
 
 ##########################################################################################
 # Extract Data ###########################################################################
@@ -112,8 +115,8 @@ if (to_append == FALSE){
 # Push app to shinyapps.io ###############################################################
 # ########################################################################################
 
-Sys.setenv(http_proxy = 'http://PoorJ:Aegon2023@edc-proxy.ds.global:9090')
-Sys.setenv(https_proxy = 'https://PoorJ:Aegon2023@edc-proxy.ds.global:9090')
+Sys.setenv(http_proxy = proxy$http)
+Sys.setenv(https_proxy = proxy$https)
 
 rsconnect::deployApp(appName = "CloseTracker", forceUpdate = TRUE)
 

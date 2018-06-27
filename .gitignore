@@ -5,6 +5,7 @@
 *.html
 *.ppt
 *.pptx
+scriptLog
 
 # History files
 .Rhistory
