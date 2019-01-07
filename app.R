@@ -25,7 +25,7 @@ t_app_curr <- t_app_hist %>% filter(IDOPONT == now)
 
 # Define dashboard components
 ui <- dashboardPage(
-  dashboardHeader(title = paste0("Jutalek zaras ", "BETA")),
+  dashboardHeader(title = "WorkLoad Tracker"),
   dashboardSidebar(sidebarMenu(
     checkboxGroupInput("prodInput", strong("Termekcsoport"),
       choices = levels(t_app_hist$F_TERMCSOP),
