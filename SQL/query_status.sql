@@ -25,7 +25,7 @@
            END
               AS F_CSATORNA_KAT,
            CONVERT (f_kecs_pg, 'US7ASCII') AS f_kecs_pg,
-           CONVERT (f_kecs, 'US7ASCII') AS f_kecs,
+           CONVERT (k2017afc.basic.kecs_with_doc_status(f_ivk), 'US7ASCII') AS f_kecs,
            kontakt.basic.aivk_atfutas(a.f_ivk) afc_napos,
            f_erkezes,
            f_lezaras,
