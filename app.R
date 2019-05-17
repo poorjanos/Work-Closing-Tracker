@@ -34,11 +34,11 @@ ui <- dashboardPage(
     checkboxGroupInput("channelInput", strong("Ertekesitesi csatorna"),
       choices = levels(t_app_hist$F_CSATORNA_KAT),
       selected = levels(t_app_hist$F_CSATORNA_KAT)
-    ),
-    checkboxGroupInput("premiumInput", strong("Konyvelt dij"),
-      choices = levels(t_app_hist$DIJ_ERKEZETT),
-      selected = levels(t_app_hist$DIJ_ERKEZETT)
-    )
+    )#,
+    # checkboxGroupInput("premiumInput", strong("Konyvelt dij"),
+    #   choices = levels(t_app_hist$DIJ_ERKEZETT),
+    #   selected = levels(t_app_hist$DIJ_ERKEZETT)
+    # )
   )),
   dashboardBody(
     # Top row value boxes
@@ -84,8 +84,8 @@ server <- function(input, output) {
       filter(
         !is.na(F_KECS_PG) &
           F_TERMCSOP %in% input$prodInput &
-          F_CSATORNA_KAT %in% input$channelInput &
-          DIJ_ERKEZETT %in% input$premiumInput
+          F_CSATORNA_KAT %in% input$channelInput #&
+          #DIJ_ERKEZETT %in% input$premiumInput
       )
   })
 
@@ -94,8 +94,8 @@ server <- function(input, output) {
       filter(
         !is.na(F_KECS_PG) &
           F_TERMCSOP %in% input$prodInput &
-          F_CSATORNA_KAT %in% input$channelInput &
-          DIJ_ERKEZETT %in% input$premiumInput
+          F_CSATORNA_KAT %in% input$channelInput #&
+          #DIJ_ERKEZETT %in% input$premiumInput
       )
   })
   # Render ValueBoxes
