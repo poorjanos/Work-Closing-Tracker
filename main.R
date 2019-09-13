@@ -116,7 +116,7 @@ if (to_append == FALSE){
 # ########################################################################################
 
 Sys.setenv(http_proxy = proxy$http)
-Sys.setenv(https_proxy = proxy$https)
+Sys.setenv(https_proxy = proxy$http)
 
 rsconnect::deployApp(appName = "CloseTracker", forceUpdate = TRUE)
 
